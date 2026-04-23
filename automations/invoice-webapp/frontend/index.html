@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invoice Upload Tool</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f7fa;
+      color: #333;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 20px rgba(0,0,0,0.08);
+      padding: 40px;
+      width: 100%;
+      max-width: 520px;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #111;
+    }
+
+    .subtitle {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 28px;
+    }
+
+    /* Upload zone */
+    .upload-zone {
+      border: 2px dashed #d0d7e2;
+      border-radius: 8px;
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      margin-bottom: 16px;
+    }
+
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: #4F6EF7;
+      background: #f0f4ff;
+    }
+
+    .upload-zone .icon { font-size: 36px; margin-bottom: 8px; }
+
+    .upload-zone p { color: #555; font-size: 14px; }
+    .upload-zone span { color: #4F6EF7; font-weight: 600; }
+    .upload-zone .filename { margin-top: 8px; font-weight: 600; color: #111; font-size: 14px; }
+
+    #fileInput { display: none; }
+
+    /* Buttons */
+    button {
+      width: 100%;
+      padding: 13px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #processBtn {
+      background: #4F6EF7;
+      color: white;
+      margin-bottom: 12px;
+    }
+
+    #saveBtn {
+      background: #16a34a;
+      color: white;
+      display: none;
+    }
+
+    /* Status messages */
+    .status {
+      text-align: center;
+      font-size: 14px;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .status.loading { background: #eff6ff; color: #1d4ed8; display: block; }
+    .status.error   { background: #fef2f2; color: #dc2626; display: block; }
+    .status.success { background: #f0fdf4; color: #16a34a; display: block; }
+
+    /* Results */
+    #results { display: none; margin-top: 20px; }
+
+    #results h2 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #444;
+      margin-bottom: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .confidence-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .confidence-high { background: #dcfce7; color: #16a34a; }
+    .confidence-low  { background: #fef9c3; color: #a16207; }
+
+    .field {
+      margin-bottom: 14px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+
+    .field input {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 14px;
+      color: #111;
+    }
+
+    .field input:focus {
+      outline: none;
+      border-color: #4F6EF7;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #e2e8f0;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Invoice Upload Tool</h1>
+    <p class="subtitle">Upload a PDF invoice to extract and save data automatically.</p>
+
+    <!-- Upload zone -->
+    <div class="upload-zone" id="uploadZone">
+      <div class="icon">📄</div>
+      <p><span>Click to choose</span> or drag a PDF here</p>
+      <div class="filename" id="fileName"></div>
+    </div>
+    <input type="file" id="fileInput" accept=".pdf" />
+
+    <button id="processBtn" disabled>Process Invoice</button>
+
+    <!-- Status message -->
+    <div class="status" id="status"></div>
+
+    <!-- Extracted data (shown after processing) -->
+    <div id="results">
+      <hr class="divider" />
+      <h2>Extracted Data</h2>
+      <div id="confidenceBadge" class="confidence-badge"></div>
+
+      <div class="field">
+        <label>Invoice Number</label>
+        <input type="text" id="f_invoice_number" placeholder="Not found" />
+      </div>
+      <div class="field">
+        <label>Vendor</label>
+        <input type="text" id="f_vendor_name" placeholder="Not found" />
+      </div>
+      <div class="field">
+        <label>Invoice Date</label>
+        <input type="text" id="f_invoice_date" placeholder="Not found" />
+      </div>
+      <div class="field">
+        <label>Due Date</label>
+        <input type="text" id="f_due_date" placeholder="Not found" />
+      </div>
+      <div class="field">
+        <label>Total Amount ($)</label>
+        <input type="number" step="0.01" id="f_total_amount" placeholder="Not found" />
+      </div>
+
+      <button id="saveBtn">Save to Airtable</button>
+    </div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:5000';
+
+    const uploadZone  = document.getElementById('uploadZone');
+    const fileInput   = document.getElementById('fileInput');
+    const fileName    = document.getElementById('fileName');
+    const processBtn  = document.getElementById('processBtn');
+    const saveBtn     = document.getElementById('saveBtn');
+    const status      = document.getElementById('status');
+    const results     = document.getElementById('results');
+
+    let currentFile = null;
+    let extractedData = null;
+
+    // --- File selection ---
+    uploadZone.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (file) selectFile(file);
+    });
+
+    uploadZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      uploadZone.classList.add('drag-over');
+    });
+
+    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+
+    uploadZone.addEventListener('drop', e => {
+      e.preventDefault();
+      uploadZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file && file.name.endsWith('.pdf')) selectFile(file);
+      else showStatus('error', 'Please drop a PDF file.');
+    });
+
+    function selectFile(file) {
+      currentFile = file;
+      fileName.textContent = file.name;
+      processBtn.disabled = false;
+      results.style.display = 'none';
+      saveBtn.style.display = 'none';
+      hideStatus();
+    }
+
+    // --- Process ---
+    processBtn.addEventListener('click', async () => {
+      if (!currentFile) return;
+
+      processBtn.disabled = true;
+      showStatus('loading', 'Processing invoice...');
+      results.style.display = 'none';
+
+      const form = new FormData();
+      form.append('file', currentFile);
+
+      try {
+        const res = await fetch(`${API}/api/process`, { method: 'POST', body: form });
+        const json = await res.json();
+
+        if (!res.ok || !json.success) {
+          showStatus('error', json.error || 'Processing failed.');
+          processBtn.disabled = false;
+          return;
+        }
+
+        extractedData = json.data;
+        populateFields(extractedData);
+        hideStatus();
+        results.style.display = 'block';
+        saveBtn.style.display = 'block';
+
+      } catch (err) {
+        showStatus('error', 'Could not reach server. Make sure the backend is running.');
+      }
+
+      processBtn.disabled = false;
+    });
+
+    function populateFields(data) {
+      document.getElementById('f_invoice_number').value = data.invoice_number || '';
+      document.getElementById('f_vendor_name').value    = data.vendor_name    || '';
+      document.getElementById('f_invoice_date').value   = data.invoice_date   || '';
+      document.getElementById('f_due_date').value       = data.due_date       || '';
+      document.getElementById('f_total_amount').value   = data.total_amount   || '';
+
+      const badge = document.getElementById('confidenceBadge');
+      const pct   = Math.round((data.confidence || 0) * 100);
+      badge.textContent = `${pct}% confidence`;
+      badge.className   = 'confidence-badge ' + (pct >= 80 ? 'confidence-high' : 'confidence-low');
+    }
+
+    // --- Save ---
+    saveBtn.addEventListener('click', async () => {
+      saveBtn.disabled = true;
+      showStatus('loading', 'Saving to Airtable...');
+
+      // Read current field values (user may have edited them)
+      const payload = {
+        invoice_number: document.getElementById('f_invoice_number').value || null,
+        vendor_name:    document.getElementById('f_vendor_name').value    || null,
+        invoice_date:   document.getElementById('f_invoice_date').value   || null,
+        due_date:       document.getElementById('f_due_date').value       || null,
+        total_amount:   parseFloat(document.getElementById('f_total_amount').value) || null,
+        confidence:     extractedData?.confidence || 1.0,
+        source_file:    currentFile?.name || 'Web Upload',
+      };
+
+      try {
+        const res  = await fetch(`${API}/api/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const json = await res.json();
+
+        if (res.ok && json.success) {
+          showStatus('success', 'Invoice saved to Airtable!');
+          saveBtn.style.display = 'none';
+        } else {
+          showStatus('error', json.error || 'Save failed.');
+          saveBtn.disabled = false;
+        }
+      } catch (err) {
+        showStatus('error', 'Could not reach server.');
+        saveBtn.disabled = false;
+      }
+    });
+
+    // --- Helpers ---
+    function showStatus(type, msg) {
+      status.className = `status ${type}`;
+      status.textContent = msg;
+    }
+
+    function hideStatus() {
+      status.className = 'status';
+      status.style.display = 'none';
+    }
+  </script>
+</body>
+</html>
